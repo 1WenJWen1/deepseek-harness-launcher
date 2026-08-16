@@ -30,10 +30,13 @@ function Resolve-EdgePath {
 $dshProcess = $null
 $port = 3080
 $profilePath = Join-Path $projectRoot 'work\edge-profile'
+$readySignalPath = Join-Path $projectRoot 'work\launcher-ready.signal'
 
 try {
-    $npxPath = Resolve-CommandPath -Name 'npx.cmd'
+    if ([System.IO.File]::Exists($readySignalPath)) { [System.IO.File]::Delete($readySignalPath) }
+    $npxPath = Resolve-NodeToolPath -Name 'npx.cmd'
     if (-not $npxPath) { throw $messages.NodeMissing }
+    Set-NodeToolPath -ToolPath $npxPath
 
     $edgePath = Resolve-EdgePath
     if (-not $edgePath) { throw $messages.EdgeMissing }
@@ -81,6 +84,7 @@ try {
         Start-Sleep -Milliseconds 500
     }
     if (-not $windowSeen) { throw $messages.EdgeWindowMissing }
+    [System.IO.File]::WriteAllText($readySignalPath, 'ready', [System.Text.Encoding]::ASCII)
 
     while (@(Get-EdgeWindowProcesses -ProfilePath $profilePath).Count -gt 0) {
         Start-Sleep -Milliseconds 750
@@ -90,5 +94,6 @@ catch {
     Show-LauncherError -Message $_.Exception.Message
 }
 finally {
+    if ([System.IO.File]::Exists($readySignalPath)) { [System.IO.File]::Delete($readySignalPath) }
     if ($dshProcess) { [void](Stop-OwnedProcessTree -ProcessId $dshProcess.Id) }
 }

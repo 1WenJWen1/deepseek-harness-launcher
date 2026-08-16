@@ -7,6 +7,36 @@ function Resolve-CommandPath {
     return $command.Source
 }
 
+function Resolve-NodeToolPath {
+    param([Parameter(Mandatory = $true)][string] $Name)
+
+    $fromPath = Resolve-CommandPath -Name $Name
+    if ($fromPath) { return $fromPath }
+
+    $documents = [Environment]::GetFolderPath('MyDocuments')
+    $toolsRoot = Join-Path $documents 'Codex\tools'
+    if (-not (Test-Path -LiteralPath $toolsRoot)) { return $null }
+
+    $nodeDirectories = Get-ChildItem -LiteralPath $toolsRoot -Directory -Filter 'node-v*-win-x64' -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTimeUtc -Descending
+    foreach ($directory in $nodeDirectories) {
+        $candidate = Join-Path $directory.FullName $Name
+        if (Test-Path -LiteralPath $candidate) { return $candidate }
+    }
+    return $null
+}
+
+function Set-NodeToolPath {
+    param([Parameter(Mandatory = $true)][string] $ToolPath)
+
+    $nodeDirectory = Split-Path -Parent $ToolPath
+    if (-not (Test-Path -LiteralPath (Join-Path $nodeDirectory 'node.exe'))) {
+        throw "Matching node.exe not found beside tool: $ToolPath"
+    }
+    $remaining = @($env:Path -split ';' | Where-Object { $_ -and $_.TrimEnd('\') -ne $nodeDirectory.TrimEnd('\') })
+    $env:Path = (@($nodeDirectory) + $remaining) -join ';'
+}
+
 function Test-LocalPort {
     param(
         [Parameter(Mandatory = $true)][int] $Port,

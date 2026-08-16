@@ -24,6 +24,20 @@ if (-not (Test-Path -LiteralPath $corePath)) {
 $nodePath = Resolve-CommandPath -Name 'node.exe'
 Assert-True -Condition ([bool]$nodePath -and (Test-Path -LiteralPath $nodePath)) -Name 'Resolve-CommandPath finds node.exe'
 
+$npxPath = Resolve-NodeToolPath -Name 'npx.cmd'
+Assert-True -Condition ([bool]$npxPath -and (Test-Path -LiteralPath $npxPath)) -Name 'Resolve-NodeToolPath finds the independently installed npx.cmd'
+
+$savedPath = $env:Path
+try {
+    Set-NodeToolPath -ToolPath $npxPath
+    $expectedNodeDirectory = Split-Path -Parent $npxPath
+    $actualFirstPath = ($env:Path -split ';')[0]
+    Assert-True -Condition ($actualFirstPath.TrimEnd('\') -eq $expectedNodeDirectory.TrimEnd('\')) -Name 'Set-NodeToolPath puts the matching Node runtime first'
+}
+finally {
+    $env:Path = $savedPath
+}
+
 $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
 $listener.Start()
 $unusedPort = ([System.Net.IPEndPoint]$listener.LocalEndpoint).Port
@@ -46,6 +60,7 @@ if ($launcherExists) {
     Assert-True -Condition ($launcherText -match 'Start-Process') -Name 'Launcher starts child processes'
     Assert-True -Condition ($launcherText -match '--app=http://127\.0\.0\.1:3080') -Name 'Launcher opens the DSH local URL in app mode'
     Assert-True -Condition ($launcherText -match 'Stop-OwnedProcessTree') -Name 'Launcher cleans up its owned DSH process tree'
+    Assert-True -Condition ($launcherText -match 'launcher-ready\.signal') -Name 'Launcher publishes a window-ready signal'
 }
 
 $installerPath = Join-Path $root 'src\Install-DeepSeekHarness.ps1'
@@ -62,6 +77,23 @@ if ($installerExists) {
     Assert-True -Condition ($installerText -match 'IconLocation') -Name 'Shortcut assigns the generated icon'
     Assert-True -Condition ($installerText -match 'DeepSeek Harness\.lnk') -Name 'Installer creates exactly the named launcher shortcut'
 }
+
+$verificationPath = Join-Path $root 'tests\Verify-Installation.ps1'
+$verificationExists = Test-Path -LiteralPath $verificationPath
+Assert-True -Condition $verificationExists -Name 'Installation lifecycle verification exists'
+if ($verificationExists) {
+    $tokens = $null
+    $parseErrors = $null
+    [void][System.Management.Automation.Language.Parser]::ParseFile($verificationPath, [ref]$tokens, [ref]$parseErrors)
+    Assert-True -Condition ($parseErrors.Count -eq 0) -Name 'Installation verification has valid PowerShell syntax'
+    $verificationText = Get-Content -Raw -LiteralPath $verificationPath
+    Assert-True -Condition ($verificationText -match 'CloseMainWindow') -Name 'Lifecycle test closes the isolated app window'
+    Assert-True -Condition ($verificationText -match 'Test-LocalPort') -Name 'Lifecycle test verifies port startup and shutdown'
+    Assert-True -Condition ($verificationText -match 'launcher-ready\.signal') -Name 'Lifecycle test waits for launcher window ownership'
+}
+
+$readmePath = Join-Path $root 'outputs\README.txt'
+Assert-True -Condition (Test-Path -LiteralPath $readmePath) -Name 'Chinese usage README exists'
 
 if ($script:Failed -gt 0) {
     Write-Host "$script:Failed test(s) failed; $script:Passed passed." -ForegroundColor Red
