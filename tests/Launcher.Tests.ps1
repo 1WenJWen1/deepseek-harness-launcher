@@ -48,6 +48,21 @@ if ($launcherExists) {
     Assert-True -Condition ($launcherText -match 'Stop-OwnedProcessTree') -Name 'Launcher cleans up its owned DSH process tree'
 }
 
+$installerPath = Join-Path $root 'src\Install-DeepSeekHarness.ps1'
+$installerExists = Test-Path -LiteralPath $installerPath
+Assert-True -Condition $installerExists -Name 'Installer script exists'
+if ($installerExists) {
+    $tokens = $null
+    $parseErrors = $null
+    [void][System.Management.Automation.Language.Parser]::ParseFile($installerPath, [ref]$tokens, [ref]$parseErrors)
+    Assert-True -Condition ($parseErrors.Count -eq 0) -Name 'Installer has valid PowerShell syntax'
+    $installerText = Get-Content -Raw -LiteralPath $installerPath
+    Assert-True -Condition ($installerText -match '-WindowStyle Hidden') -Name 'Shortcut hides the PowerShell window'
+    Assert-True -Condition ($installerText -match '-ExecutionPolicy Bypass') -Name 'Shortcut permits the signed-local launcher script to run'
+    Assert-True -Condition ($installerText -match 'IconLocation') -Name 'Shortcut assigns the generated icon'
+    Assert-True -Condition ($installerText -match 'DeepSeek Harness\.lnk') -Name 'Installer creates exactly the named launcher shortcut'
+}
+
 if ($script:Failed -gt 0) {
     Write-Host "$script:Failed test(s) failed; $script:Passed passed." -ForegroundColor Red
     exit 1
