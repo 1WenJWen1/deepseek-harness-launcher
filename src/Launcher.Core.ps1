@@ -10,9 +10,6 @@ function Resolve-CommandPath {
 function Resolve-NodeToolPath {
     param([Parameter(Mandatory = $true)][string] $Name)
 
-    $fromPath = Resolve-CommandPath -Name $Name
-    if ($fromPath) { return $fromPath }
-
     $documents = [Environment]::GetFolderPath('MyDocuments')
     $toolsRoot = Join-Path $documents 'Codex\tools'
     if (-not (Test-Path -LiteralPath $toolsRoot)) { return $null }
@@ -23,7 +20,7 @@ function Resolve-NodeToolPath {
         $candidate = Join-Path $directory.FullName $Name
         if (Test-Path -LiteralPath $candidate) { return $candidate }
     }
-    return $null
+    return Resolve-CommandPath -Name $Name
 }
 
 function Set-NodeToolPath {

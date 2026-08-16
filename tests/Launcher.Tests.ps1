@@ -27,6 +27,11 @@ Assert-True -Condition ([bool]$nodePath -and (Test-Path -LiteralPath $nodePath))
 $npxPath = Resolve-NodeToolPath -Name 'npx.cmd'
 Assert-True -Condition ([bool]$npxPath -and (Test-Path -LiteralPath $npxPath)) -Name 'Resolve-NodeToolPath finds the independently installed npx.cmd'
 
+$managedNodePath = Resolve-NodeToolPath -Name 'node.exe'
+$managedNodeVersion = & $managedNodePath --version
+$managedNodeMajor = [int](($managedNodeVersion -replace '^v', '') -split '\.')[0]
+Assert-True -Condition ($managedNodeMajor -ge 22) -Name 'Resolve-NodeToolPath prefers the managed Node 22 runtime over bundled legacy Node'
+
 $savedPath = $env:Path
 try {
     Set-NodeToolPath -ToolPath $npxPath
@@ -61,6 +66,9 @@ if ($launcherExists) {
     Assert-True -Condition ($launcherText -match '--app=http://127\.0\.0\.1:3080') -Name 'Launcher opens the DSH local URL in app mode'
     Assert-True -Condition ($launcherText -match 'Stop-OwnedProcessTree') -Name 'Launcher cleans up its owned DSH process tree'
     Assert-True -Condition ($launcherText -match 'launcher-ready\.signal') -Name 'Launcher publishes a window-ready signal'
+    Assert-True -Condition ($launcherText -match "Resolve-NodeToolPath -Name 'node\.exe'") -Name 'Launcher resolves the direct Node runtime'
+    Assert-True -Condition ($launcherText -match 'node_modules.*@deepseek-ai.*dsh.*lib.*bin\.js') -Name 'Launcher uses the locally installed DSH entry'
+    Assert-True -Condition ($launcherText -notmatch "Resolve-NodeToolPath -Name 'npx\.cmd'") -Name 'Launcher does not resolve npx at startup'
 }
 
 $installerPath = Join-Path $root 'src\Install-DeepSeekHarness.ps1'
@@ -76,6 +84,9 @@ if ($installerExists) {
     Assert-True -Condition ($installerText -match '-ExecutionPolicy Bypass') -Name 'Shortcut permits the signed-local launcher script to run'
     Assert-True -Condition ($installerText -match 'IconLocation') -Name 'Shortcut assigns the generated icon'
     Assert-True -Condition ($installerText -match 'DeepSeek Harness\.lnk') -Name 'Installer creates exactly the named launcher shortcut'
+    Assert-True -Condition ($installerText -match "Resolve-NodeToolPath -Name 'npm\.cmd'") -Name 'Installer resolves npm for one-time deployment'
+    Assert-True -Condition ($installerText -match '@deepseek-ai/dsh@0\.1\.0-rc\.6') -Name 'Installer pins the tested DSH release candidate'
+    Assert-True -Condition ($installerText -match '_npx' -and $installerText -match 'robocopy') -Name 'Installer bootstraps from the verified npx cache before network fallback'
 }
 
 $verificationPath = Join-Path $root 'tests\Verify-Installation.ps1'

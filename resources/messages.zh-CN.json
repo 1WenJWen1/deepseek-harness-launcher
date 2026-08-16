@@ -1,5 +1,6 @@
 {
-  "NodeMissing": "找不到 npx.cmd。请重新安装 Node.js，或重新打开终端后再试。",
+  "NodeMissing": "找不到可用的 Node.js 22。请重新安装 Node.js 后再试。",
+  "DshNotInstalled": "DeepSeek Harness 尚未完成本地部署。请重新运行安装脚本。",
   "EdgeMissing": "找不到 Microsoft Edge。请安装或修复 Edge 后再试。",
   "PortBusy": "端口 {0} 已被其他程序占用。为避免误关其他程序，本启动器没有继续运行。",
   "DshExited": "DeepSeek Harness 在页面启动前意外退出。",

@@ -34,9 +34,11 @@ $readySignalPath = Join-Path $projectRoot 'work\launcher-ready.signal'
 
 try {
     if ([System.IO.File]::Exists($readySignalPath)) { [System.IO.File]::Delete($readySignalPath) }
-    $npxPath = Resolve-NodeToolPath -Name 'npx.cmd'
-    if (-not $npxPath) { throw $messages.NodeMissing }
-    Set-NodeToolPath -ToolPath $npxPath
+    $nodePath = Resolve-NodeToolPath -Name 'node.exe'
+    if (-not $nodePath) { throw $messages.NodeMissing }
+    Set-NodeToolPath -ToolPath $nodePath
+    $dshEntryPath = Join-Path $projectRoot 'runtime\dsh\node_modules\@deepseek-ai\dsh\lib\bin.js'
+    if (-not (Test-Path -LiteralPath $dshEntryPath)) { throw $messages.DshNotInstalled }
 
     $edgePath = Resolve-EdgePath
     if (-not $edgePath) { throw $messages.EdgeMissing }
@@ -46,8 +48,8 @@ try {
     }
 
     New-Item -ItemType Directory -Force -Path $profilePath | Out-Null
-    $dshProcess = Start-Process -FilePath $npxPath `
-        -ArgumentList @('--yes', '@deepseek-ai/dsh', 'web') `
+    $dshProcess = Start-Process -FilePath $nodePath `
+        -ArgumentList @("`"$dshEntryPath`"", 'web') `
         -WorkingDirectory $projectRoot `
         -WindowStyle Hidden `
         -PassThru

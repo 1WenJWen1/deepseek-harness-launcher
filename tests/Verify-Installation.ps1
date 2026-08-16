@@ -20,7 +20,8 @@ Check (Test-Path -LiteralPath $shortcutPath) 'Desktop shortcut exists'
 Check (Test-Path -LiteralPath $launcherPath) 'Launcher exists'
 Check (Test-Path -LiteralPath $iconPath) 'Icon exists'
 Check ([bool](Resolve-NodeToolPath -Name 'node.exe')) 'Node.js resolves'
-Check ([bool](Resolve-NodeToolPath -Name 'npx.cmd')) 'npx resolves'
+$dshEntryPath = Join-Path $root 'runtime\dsh\node_modules\@deepseek-ai\dsh\lib\bin.js'
+Check (Test-Path -LiteralPath $dshEntryPath) 'Pinned local DSH entry exists'
 
 $edgeCandidates = @(
     (Resolve-CommandPath -Name 'msedge.exe'),
