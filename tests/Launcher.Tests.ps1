@@ -52,6 +52,8 @@ Assert-True -Condition (-not (Test-LocalPort -Port $unusedPort -TimeoutMilliseco
 Assert-True -Condition (-not (Stop-OwnedProcessTree -ProcessId 0)) -Name 'Stop-OwnedProcessTree ignores PID zero'
 Assert-True -Condition (-not (Stop-OwnedProcessTree -ProcessId $PID)) -Name 'Stop-OwnedProcessTree ignores the current process'
 Assert-True -Condition (-not (Stop-OwnedProcessTree -ProcessId 2147483000)) -Name 'Stop-OwnedProcessTree ignores an already exited process without error'
+$missingEdgeProfile = Join-Path $env:TEMP ([Guid]::NewGuid().ToString('N'))
+Assert-True -Condition ((Stop-EdgeProfileProcesses -ProfilePath $missingEdgeProfile) -eq 0) -Name 'Stop-EdgeProfileProcesses safely handles an unused profile'
 
 $launcherPath = Join-Path $root 'src\Start-DeepSeekHarness.ps1'
 $launcherExists = Test-Path -LiteralPath $launcherPath
@@ -70,6 +72,7 @@ if ($launcherExists) {
     Assert-True -Condition ($launcherText -match "Resolve-NodeToolPath -Name 'node\.exe'") -Name 'Launcher resolves the direct Node runtime'
     Assert-True -Condition ($launcherText -match 'node_modules.*@deepseek-ai.*dsh.*lib.*bin\.js') -Name 'Launcher uses the locally installed DSH entry'
     Assert-True -Condition ($launcherText -notmatch "Resolve-NodeToolPath -Name 'npx\.cmd'") -Name 'Launcher does not resolve npx at startup'
+    Assert-True -Condition (([regex]::Matches($launcherText, 'Stop-EdgeProfileProcesses')).Count -ge 2) -Name 'Launcher cleans its isolated Edge profile before and after use'
 }
 
 $installerPath = Join-Path $root 'src\Install-DeepSeekHarness.ps1'

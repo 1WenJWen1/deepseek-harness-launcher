@@ -51,17 +51,37 @@ function Test-LocalPort {
     finally { $client.Dispose() }
 }
 
-function Get-EdgeWindowProcesses {
+function Get-EdgeProfileProcesses {
     param([Parameter(Mandatory = $true)][string] $ProfilePath)
 
     $escapedProfile = [WildcardPattern]::Escape($ProfilePath)
-    $matches = Get-CimInstance Win32_Process -Filter "Name = 'msedge.exe'" -ErrorAction SilentlyContinue |
+    Get-CimInstance Win32_Process -Filter "Name = 'msedge.exe'" -ErrorAction SilentlyContinue |
         Where-Object { $_.CommandLine -like "*$escapedProfile*" }
+}
 
-    foreach ($match in $matches) {
+function Get-EdgeWindowProcesses {
+    param([Parameter(Mandatory = $true)][string] $ProfilePath)
+
+    foreach ($match in @(Get-EdgeProfileProcesses -ProfilePath $ProfilePath)) {
         $process = Get-Process -Id $match.ProcessId -ErrorAction SilentlyContinue
         if ($process -and $process.MainWindowHandle -ne 0) { $process }
     }
+}
+
+function Stop-EdgeProfileProcesses {
+    param([Parameter(Mandatory = $true)][string] $ProfilePath)
+
+    $stoppedIds = @{}
+    for ($pass = 0; $pass -lt 5; $pass++) {
+        $matches = @(Get-EdgeProfileProcesses -ProfilePath $ProfilePath)
+        if ($matches.Count -eq 0) { break }
+        foreach ($match in $matches) {
+            $stoppedIds[$match.ProcessId] = $true
+            Stop-Process -Id $match.ProcessId -Force -ErrorAction SilentlyContinue
+        }
+        Start-Sleep -Milliseconds 200
+    }
+    return $stoppedIds.Count
 }
 
 function Stop-OwnedProcessTree {

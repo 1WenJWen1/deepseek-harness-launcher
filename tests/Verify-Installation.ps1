@@ -91,6 +91,11 @@ try {
         Start-Sleep -Milliseconds 500
     }
     Check (-not (Test-LocalPort -Port $port)) 'Closing the app window releases port 3080'
+    $edgeCleanupDeadline = [DateTime]::UtcNow.AddSeconds(10)
+    while (@(Get-ProfileEdgeProcesses -ProfilePath $profilePath).Count -gt 0 -and [DateTime]::UtcNow -lt $edgeCleanupDeadline) {
+        Start-Sleep -Milliseconds 250
+    }
+    Check (@(Get-ProfileEdgeProcesses -ProfilePath $profilePath).Count -eq 0) 'Launcher removes isolated Edge background processes'
     Check ([bool](Get-Process -Id $sentinelNode.Id -ErrorAction SilentlyContinue)) 'Unrelated Node process remains running'
     Check (@(Get-ProfileEdgeProcesses -ProfilePath $sentinelProfile).Count -gt 0) 'Unrelated Edge process remains running'
 }

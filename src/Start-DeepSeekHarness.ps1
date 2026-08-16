@@ -28,6 +28,7 @@ function Resolve-EdgePath {
 }
 
 $dshProcess = $null
+$ownsEdgeProfile = $false
 $port = 3080
 $profilePath = Join-Path $projectRoot 'work\edge-profile'
 $readySignalPath = Join-Path $projectRoot 'work\launcher-ready.signal'
@@ -47,6 +48,8 @@ try {
         throw ($messages.PortBusy -f $port)
     }
 
+    $ownsEdgeProfile = $true
+    [void](Stop-EdgeProfileProcesses -ProfilePath $profilePath)
     New-Item -ItemType Directory -Force -Path $profilePath | Out-Null
     $dshProcess = Start-Process -FilePath $nodePath `
         -ArgumentList @("`"$dshEntryPath`"", 'web') `
@@ -98,4 +101,5 @@ catch {
 finally {
     if ([System.IO.File]::Exists($readySignalPath)) { [System.IO.File]::Delete($readySignalPath) }
     if ($dshProcess) { [void](Stop-OwnedProcessTree -ProcessId $dshProcess.Id) }
+    if ($ownsEdgeProfile) { [void](Stop-EdgeProfileProcesses -ProfilePath $profilePath) }
 }
