@@ -51,6 +51,7 @@ Assert-True -Condition (-not (Test-LocalPort -Port $unusedPort -TimeoutMilliseco
 
 Assert-True -Condition (-not (Stop-OwnedProcessTree -ProcessId 0)) -Name 'Stop-OwnedProcessTree ignores PID zero'
 Assert-True -Condition (-not (Stop-OwnedProcessTree -ProcessId $PID)) -Name 'Stop-OwnedProcessTree ignores the current process'
+Assert-True -Condition (-not (Stop-OwnedProcessTree -ProcessId 2147483000)) -Name 'Stop-OwnedProcessTree ignores an already exited process without error'
 
 $launcherPath = Join-Path $root 'src\Start-DeepSeekHarness.ps1'
 $launcherExists = Test-Path -LiteralPath $launcherPath

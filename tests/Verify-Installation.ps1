@@ -9,6 +9,13 @@ function Check {
     else { Write-Host "FAIL: $Name" -ForegroundColor Red; $script:failures++ }
 }
 
+function Get-ProfileEdgeProcesses {
+    param([string] $ProfilePath)
+    $escapedProfile = [WildcardPattern]::Escape($ProfilePath)
+    Get-CimInstance Win32_Process -Filter "Name = 'msedge.exe'" -ErrorAction SilentlyContinue |
+        Where-Object { $_.CommandLine -like "*$escapedProfile*" }
+}
+
 $launcherPath = Join-Path $root 'src\Start-DeepSeekHarness.ps1'
 $iconPath = Join-Path $root 'assets\deepseek-harness.ico'
 $shortcutPath = Join-Path ([Environment]::GetFolderPath('Desktop')) 'DeepSeek Harness.lnk'
@@ -46,13 +53,17 @@ if ($failures -gt 0) { exit 1 }
 $sentinelNode = $null
 $sentinelEdge = $null
 $launcherHost = $null
+$sentinelProfile = Join-Path $root 'work\sentinel-edge-profile'
 try {
     if ([System.IO.File]::Exists($readySignalPath)) { [System.IO.File]::Delete($readySignalPath) }
     $nodePath = Resolve-NodeToolPath -Name 'node.exe'
     $sentinelNode = Start-Process -FilePath $nodePath -ArgumentList @('-e', 'setInterval(()=>{},1000)') -WindowStyle Hidden -PassThru
-    $sentinelProfile = Join-Path $root 'work\sentinel-edge-profile'
     New-Item -ItemType Directory -Force -Path $sentinelProfile | Out-Null
     $sentinelEdge = Start-Process -FilePath $edgePath -ArgumentList @('--headless=new', '--disable-gpu', "--user-data-dir=$sentinelProfile", 'about:blank') -WindowStyle Hidden -PassThru
+    $sentinelDeadline = [DateTime]::UtcNow.AddSeconds(10)
+    while (@(Get-ProfileEdgeProcesses -ProfilePath $sentinelProfile).Count -eq 0 -and [DateTime]::UtcNow -lt $sentinelDeadline) {
+        Start-Sleep -Milliseconds 250
+    }
 
     $powerShellPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
     $launcherHost = Start-Process -FilePath $powerShellPath -ArgumentList @('-NoProfile', '-WindowStyle', 'Hidden', '-ExecutionPolicy', 'Bypass', '-File', $launcherPath) -WindowStyle Hidden -PassThru
@@ -81,12 +92,14 @@ try {
     }
     Check (-not (Test-LocalPort -Port $port)) 'Closing the app window releases port 3080'
     Check ([bool](Get-Process -Id $sentinelNode.Id -ErrorAction SilentlyContinue)) 'Unrelated Node process remains running'
-    Check ([bool](Get-Process -Id $sentinelEdge.Id -ErrorAction SilentlyContinue)) 'Unrelated Edge process remains running'
+    Check (@(Get-ProfileEdgeProcesses -ProfilePath $sentinelProfile).Count -gt 0) 'Unrelated Edge process remains running'
 }
 finally {
     if ($launcherHost -and (Get-Process -Id $launcherHost.Id -ErrorAction SilentlyContinue)) { [void](Stop-OwnedProcessTree -ProcessId $launcherHost.Id) }
     if ($sentinelNode) { [void](Stop-OwnedProcessTree -ProcessId $sentinelNode.Id) }
-    if ($sentinelEdge) { [void](Stop-OwnedProcessTree -ProcessId $sentinelEdge.Id) }
+    foreach ($edgeProcess in @(Get-ProfileEdgeProcesses -ProfilePath $sentinelProfile)) {
+        Stop-Process -Id $edgeProcess.ProcessId -Force -ErrorAction SilentlyContinue
+    }
 }
 
 if ($failures -gt 0) { exit 1 }

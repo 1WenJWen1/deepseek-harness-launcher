@@ -68,8 +68,9 @@ function Stop-OwnedProcessTree {
     param([Parameter(Mandatory = $true)][int] $ProcessId)
 
     if ($ProcessId -le 0 -or $ProcessId -eq $PID) { return $false }
+    if (-not (Get-Process -Id $ProcessId -ErrorAction SilentlyContinue)) { return $false }
     $taskkill = Join-Path $env:SystemRoot 'System32\taskkill.exe'
     if (-not (Test-Path -LiteralPath $taskkill)) { return $false }
-    & $taskkill /PID $ProcessId /T /F 2>$null | Out-Null
-    return $true
+    $killProcess = Start-Process -FilePath $taskkill -ArgumentList @('/PID', $ProcessId, '/T', '/F') -WindowStyle Hidden -Wait -PassThru
+    return (-not (Get-Process -Id $ProcessId -ErrorAction SilentlyContinue))
 }
